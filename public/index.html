@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NSE Insider" />
+    <meta name="description" content="NSE Insider Data dashboard for insider trading filings" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>NSE Insider Data</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <div id="dashboardView" class="view-panel active">
+        <header class="hero-card hero-row hero-header-single">
+          <div class="hero-title-wrap">
+            <img class="app-logo" src="/icon.svg" alt="NSE Insider logo" />
+            <h1 class="hero-title">NSE Insider Data</h1>
+          </div>
+          <div class="hero-actions">
+            <div class="hero-actions-main">
+              <button id="fetchButton" type="button" class="primary-btn">Fetch Data</button>
+              <button id="refreshButton" type="button" class="icon-btn" aria-label="Refresh data">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1l-4 4 4 4V6c2.76 0 5 2.24 5 5 0 .46-.07.91-.18 1.34l1.53 1.18A7.94 7.94 0 0 0 20 11c0-4.42-3.58-8-8-8-1.9 0-3.64.66-5.02 1.76L5.6 2.89A9.975 9.975 0 0 1 12 0c5.52 0 10 4.48 10 10 0 1.5-.33 2.94-.92 4.24L17.65 6.35zM6.35 17.65A7.95 7.95 0 0 0 12 20v3l4-4-4-4v3c-2.76 0-5-2.24-5-5 0-.46.07-.91.18-1.34L5.65 8.5A7.94 7.94 0 0 0 4 13c0 4.42 3.58 8 8 8 1.9 0 3.64-.66 5.02-1.76L18.4 21.11A9.975 9.975 0 0 1 12 24c-5.52 0-10-4.48-10-10 0-1.5.33-2.94.92-4.24l3.43 3.89z"/></svg>
+              </button>
+            </div>
+            <div class="hero-actions-meta">
+              <span id="autoRefreshIndicator" class="auto-refresh hidden" aria-live="polite">
+                <span class="spinner spinner-sm" aria-hidden="true"></span>
+                Refreshing data…
+              </span>
+            </div>
+          </div>
+        </header>
+
+        <section class="filters-card" aria-label="Transaction filters">
+          <div class="filters-grid">
+            <label class="filter-stack">
+              <span>Category of Person</span>
+              <div class="multi-select">
+                <button type="button" id="categoryToggle" class="multi-select-trigger">Select categories</button>
+                <div id="categoryDropdown" class="multi-select-dropdown hidden">
+                  <div id="categoryOptions" class="multi-select-options"></div>
+                </div>
+              </div>
+            </label>
+            <label>
+              <span>Transaction Type</span>
+              <select id="transactionTypeFilter">
+                <option value="">All</option>
+                <option value="Buy">Buy</option>
+                <option value="Sell">Sell</option>
+              </select>
+            </label>
+            <label>
+              <span>Symbol</span>
+              <input id="symbolFilter" type="text" placeholder="Search symbol" />
+            </label>
+            <label>
+              <span>Mode of Acquisition / Disposal</span>
+              <select id="modeFilter">
+                <option value="">All</option>
+                <option value="Market Purchase">Market Purchase</option>
+                <option value="Market Sale">Market Sale</option>
+                <option value="Block Deal">Block Deal</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="table-card">
+          <div class="table-toolbar">
+            <div class="status-stack">
+              <div id="statusText">Loading transactions…</div>
+              <div id="syncStatus" class="sync-status">Idle</div>
+            </div>
+            <div class="filter-buttons">
+              <button id="viewNse" type="button" class="secondary-btn active">NSE</button>
+              <button id="viewHoldings" type="button" class="secondary-btn">Holdings</button>
+            </div>
+            <div class="pagination-controls">
+              <button id="prevPage" class="secondary-btn">Previous</button>
+              <span id="pageInfo">Page 1</span>
+              <button id="nextPage" class="secondary-btn">Next</button>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th data-sort="symbol">Symbol</th>
+                  <th data-sort="category_of_person">Category</th>
+                  <th data-sort="transaction_date">Date</th>
+                  <th data-sort="quantity">Qty</th>
+                  <th>Avg Price</th>
+                  <th data-sort="mode">Mode</th>
+                </tr>
+              </thead>
+              <tbody id="transactionsBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination-bottom">
+            <button id="prevPageBottom" class="secondary-btn">Previous</button>
+            <span id="pageInfoBottom">Page 1</span>
+            <button id="nextPageBottom" class="secondary-btn">Next</button>
+          </div>
+          <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+          </div>
+        </section>
+
+        <div id="stockModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="stockModalTitle">
+          <div class="modal-panel" role="document">
+            <div class="modal-header">
+              <div class="modal-title-stack">
+                <p class="eyebrow">Stock details</p>
+                <h2 id="stockModalTitle">Loading...</h2>
+                <div id="stockModalChange" class="modal-subtitle"></div>
+              </div>
+              <button id="stockModalClose" type="button" class="icon-btn" aria-label="Close details modal">×</button>
+            </div>
+            <div id="stockModalBody" class="modal-body">
+              <div class="modal-loading">Please select a symbol to view details.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
