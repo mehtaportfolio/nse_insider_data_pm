@@ -5,10 +5,13 @@
   "theme_color": "#000000",
   "background_color": "#000000",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "orientation": "portrait",
   "start_url": "/",
   "scope": "/",
   "id": "/",
+  "categories": ["finance", "productivity"],
+  "screenshots": [],
   "icons": [
     {
       "src": "/icon.svg",
