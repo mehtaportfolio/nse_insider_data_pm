@@ -46,8 +46,8 @@ body {
   line-height: 1.5;
 }
 .app-shell { max-width: 1200px; margin: 0 auto; padding: 20px 16px; display: grid; gap: 18px; }
-.tabs-navigation { display: flex; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 8px; }
-.tab-button { flex: 1; padding: 12px 16px; border: none; border-radius: 12px; background: transparent; color: var(--muted); font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
+.tabs-navigation { display: flex; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 8px; width: 100%; box-sizing: border-box; }
+.tabs-navigation .tab-button { display: block; flex: 1 1 50%; min-width: 0; padding: 12px 16px; border: none; border-radius: 12px; background: transparent; color: var(--muted); font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.2s ease; text-align: center; }
 .tab-button:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
 .tab-button.active { background: #ffffff; color: #000000; }
 .hero-card, .filters-card, .table-card, .analysis-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 18px; box-shadow: 0 20px 40px rgba(0,0,0,0.25); }
@@ -112,8 +112,25 @@ button { cursor: pointer; }
 .status-stack { display: flex; flex-direction: column; gap: 4px; }
 .sync-status { color: var(--muted); font-size: 0.92rem; min-height: 1.2em; }
 .table-wrapper { overflow: auto; border-radius: 16px; border: 1px solid var(--border); }
-table { width: 100%; border-collapse: collapse; min-width: 700px; }
-th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+
+/* Global table rules for all table cards (fixes compacted cells in Insider table) */
+.table-card table { width: 100%; border-collapse: collapse; min-width: 700px; table-layout: auto; }
+.table-card th,
+.table-card td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 0.95rem; }
+.table-card th:first-child,
+.table-card td:first-child { min-width: 110px; }
+
+/* Keep shareholding view with white inner and outer borders */
+#shareholdingDataView .table-card { overflow: hidden; }
+#shareholdingDataView .table-wrapper { border: 1px solid #ffffff; border-radius: 12px; background: var(--surface-2); }
+#shareholdingDataView table { width: 100%; border-collapse: collapse; min-width: 0; }
+#shareholdingDataView th,
+#shareholdingDataView td { padding: 10px 8px; text-align: left; border: 1px solid #ffffff; font-size: 0.95rem; line-height: 1.25; vertical-align: middle; }
+#shareholdingDataView th:first-child,
+#shareholdingDataView td:first-child { min-width: 110px; }
+#shareholdingDataView .date-cell { white-space: nowrap; }
+#shareholdingDataView thead { position: sticky; top: 0; background: #0d0d0; z-index: 1; }
+#shareholdingDataView tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
 .date-cell { white-space: nowrap; }
 thead { position: sticky; top: 0; background: #0d0d0; z-index: 1; }
 tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
@@ -178,6 +195,10 @@ tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
   .filters-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .table-toolbar { gap: 10px; }
   .table-wrapper { min-width: 100%; }
+  #shareholdingDataView th,
+  #shareholdingDataView td { font-size: 0.8rem; padding: 8px 6px; white-space: normal; word-break: break-word; }
+  #shareholdingDataView th:first-child,
+  #shareholdingDataView td:first-child { min-width: 92px; }
   .table-toolbar .pagination-controls { display: none; }
   .pagination-bottom { display: flex; }
   .analysis-grid { grid-template-columns: 1fr; }
@@ -200,6 +221,8 @@ tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
   .primary-btn { min-width: 0; }
   .icon-btn { min-width: 46px; }
   input, select { width: 100%; }
+  #shareholdingDataView th,
+  #shareholdingDataView td { font-size: 0.72rem; padding: 7px 5px; }
   .table-toolbar { align-items: stretch; }
   .table-toolbar .status-stack { width: 100%; }
 }
