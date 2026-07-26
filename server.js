@@ -14,6 +14,7 @@ import shareholdingSyncRoutes from "./src/routes/shareholdingSync.js";
 import screenerShareholdingRoutes from "./src/routes/screenerShareholding.js";
 import screenerSyncRoutes from "./src/routes/screenerSync.js";
 import { syncScreenerShareholding } from "./src/services/screenerSyncService.js";
+import { syncShareholdingFilingsFromNse } from "./src/services/nseShareService.js";
 
 
 dotenv.config();
@@ -46,6 +47,7 @@ app.get("/health", (req, res) => {
 });
 
 let screenerSyncRunning = false;
+let shareholdingFilingSyncRunning = false;
 
 cron.schedule("0 2 * * *", async () => {
 
@@ -88,7 +90,49 @@ cron.schedule("0 2 * * *", async () => {
 
 });
 
+cron.schedule("0 6 * * *", async () => {
+
+    if (shareholdingFilingSyncRunning) {
+
+        console.log("======================================");
+        console.log("Shareholding filing sync already running.");
+        console.log("Skipping this schedule.");
+        console.log("======================================");
+
+        return;
+
+    }
+
+    shareholdingFilingSyncRunning = true;
+
+    console.log("======================================");
+    console.log("Starting Scheduled NSE Shareholding Filing Sync");
+    console.log("======================================");
+
+    try {
+
+        const result = await syncShareholdingFilingsFromNse();
+
+        console.log("======================================");
+        console.log("Scheduled NSE Filing Sync Completed");
+        console.log(result);
+        console.log("======================================");
+
+    } catch (err) {
+
+        console.error("Scheduled NSE Filing Sync Failed");
+        console.error(err);
+
+    } finally {
+
+        shareholdingFilingSyncRunning = false;
+
+    }
+
+});
+
 console.log("Screener sync cron scheduled: Every day at 2:00 AM");
+console.log("Shareholding filing sync cron scheduled: Every day at 6:00 AM");
 
 app.listen(PORT, () => {
   console.log(`NSE Insider Data server running on http://localhost:${PORT}`);

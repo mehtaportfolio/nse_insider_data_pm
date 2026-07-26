@@ -46,7 +46,7 @@ export async function getStocksBatch(lastStockName, limit = 400) {
 
     let query = supabase
         .from("stock_master")
-        .select("stock_name")
+        .select("stock_name, exchange, symbol_token")
         .eq("equity_type", "stock")
         .order("stock_name", { ascending: true })
         .limit(limit);

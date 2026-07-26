@@ -1,6 +1,5 @@
 import { fetchShareholding } from "./screenerShareholdingService.js";
 import {
-    getAllStocks,
     getStocksBatch,
     getLastProcessedStock,
     updateLastProcessedStock,
@@ -14,7 +13,7 @@ export async function syncScreenerShareholding() {
 
     const lastStock = await getLastProcessedStock();
 
-const stocks = await getAllStocks();
+const stocks = await getStocksBatch(lastStock, 400);
 
 if (!stocks.length) {
 
