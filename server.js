@@ -2,7 +2,19 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import insiderRoutes from "./routes/insider.js";
+import cron from "node-cron";
+
+
+import insiderRoutes from "./src/routes/insider.js";
+import shareholdingRoutes from "./src/routes/shareholding.js";
+import shareholdingPatternRoutes from "./src/routes/shareholdingPattern.js";
+import shareholdingSyncRoutes from "./src/routes/shareholdingSync.js";
+
+
+import screenerShareholdingRoutes from "./src/routes/screenerShareholding.js";
+import screenerSyncRoutes from "./src/routes/screenerSync.js";
+import { syncScreenerShareholding } from "./src/services/screenerSyncService.js";
+
 
 dotenv.config();
 
@@ -15,11 +27,68 @@ const PORT = process.env.PORT || 3000;
 app.set("trust proxy", 1);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+
 app.use("/", insiderRoutes);
+app.use("/", shareholdingRoutes);
+app.use("/", shareholdingPatternRoutes);
+app.use("/", shareholdingSyncRoutes);
+
+
+app.use("/", screenerShareholdingRoutes);
+app.use("/", screenerSyncRoutes);
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "NSE Insider Data" });
+    res.json({
+        status: "ok",
+        service: "NSE Insider Data"
+    });
 });
+
+let screenerSyncRunning = false;
+
+cron.schedule("0 2 * * *", async () => {
+
+    if (screenerSyncRunning) {
+
+        console.log("======================================");
+        console.log("Screener sync already running.");
+        console.log("Skipping this schedule.");
+        console.log("======================================");
+
+        return;
+
+    }
+
+    screenerSyncRunning = true;
+
+    console.log("======================================");
+    console.log("Starting Scheduled Screener Sync");
+    console.log("======================================");
+
+    try {
+
+        const result = await syncScreenerShareholding();
+
+        console.log("======================================");
+        console.log("Scheduled Sync Completed");
+        console.log(result);
+        console.log("======================================");
+
+    } catch (err) {
+
+        console.error("Scheduled Screener Sync Failed");
+        console.error(err);
+
+    } finally {
+
+        screenerSyncRunning = false;
+
+    }
+
+});
+
+console.log("Screener sync cron scheduled: Every day at 2:00 AM");
 
 app.listen(PORT, () => {
   console.log(`NSE Insider Data server running on http://localhost:${PORT}`);

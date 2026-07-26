@@ -1,4 +1,5 @@
 ﻿import { initDashboard } from "./dashboard.js";
+import { initShareholdingPatternTab, cleanupShareholdingTab } from "./shareholdingpattern.js";
 
 function setStartupState(isVisible, message = "") {
   const overlay = document.getElementById("startupOverlay");
@@ -10,6 +11,54 @@ function setStartupState(isVisible, message = "") {
 
   if (messageEl) {
     messageEl.textContent = message;
+  }
+}
+
+function switchTab(tabName) {
+  const insiderDataView = document.getElementById("insiderDataView");
+  const shareholdingDataView = document.getElementById("shareholdingDataView");
+  const insiderDataTab = document.getElementById("insiderDataTab");
+  const shareholdingDataTab = document.getElementById("shareholdingDataTab");
+
+  if (tabName === "insider-data") {
+    if (insiderDataView) insiderDataView.classList.add("active");
+    if (shareholdingDataView) shareholdingDataView.classList.remove("active");
+    if (insiderDataTab) {
+      insiderDataTab.classList.add("active");
+      insiderDataTab.setAttribute("aria-selected", "true");
+    }
+    if (shareholdingDataTab) {
+      shareholdingDataTab.classList.remove("active");
+      shareholdingDataTab.setAttribute("aria-selected", "false");
+    }
+  } else if (tabName === "shareholding-data") {
+    if (insiderDataView) insiderDataView.classList.remove("active");
+    if (shareholdingDataView) shareholdingDataView.classList.add("active");
+    if (insiderDataTab) {
+      insiderDataTab.classList.remove("active");
+      insiderDataTab.setAttribute("aria-selected", "false");
+    }
+    if (shareholdingDataTab) {
+      shareholdingDataTab.classList.add("active");
+      shareholdingDataTab.setAttribute("aria-selected", "true");
+    }
+  }
+}
+
+function setupTabNavigation() {
+  const insiderDataTab = document.getElementById("insiderDataTab");
+  const shareholdingDataTab = document.getElementById("shareholdingDataTab");
+
+  if (insiderDataTab) {
+    insiderDataTab.addEventListener("click", () => {
+      switchTab("insider-data");
+    });
+  }
+
+  if (shareholdingDataTab) {
+    shareholdingDataTab.addEventListener("click", () => {
+      switchTab("shareholding-data");
+    });
   }
 }
 
@@ -79,7 +128,9 @@ async function wakeBackend() {
 
 async function init() {
   await wakeBackend();
+  setupTabNavigation();
   await initDashboard();
+  await initShareholdingPatternTab();
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("/service-worker.js"));
   }

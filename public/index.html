@@ -27,7 +27,17 @@
     </div>
 
     <div class="app-shell">
-      <div id="dashboardView" class="view-panel active">
+      <nav class="tabs-navigation">
+        <button id="insiderDataTab" class="tab-button active" data-tab="insider-data" aria-selected="true" aria-controls="insiderDataView">
+          Insider Data
+        </button>
+        <button id="shareholdingDataTab" class="tab-button" data-tab="shareholding-data" aria-selected="false" aria-controls="shareholdingDataView">
+          Shareholding Data
+        </button>
+      </nav>
+
+      <div id="insiderDataView" class="view-panel active">
+        <div id="dashboardView" class="view-panel active">
         <header class="hero-card hero-row hero-header-single">
           <div class="hero-title-wrap">
             <h1 class="hero-title">NSE Insider Data</h1>
@@ -141,9 +151,103 @@
             </div>
           </div>
         </div>
+        </div>
+      </div>
+
+      <div id="shareholdingDataView" class="view-panel">
+        <header class="hero-card hero-row hero-header-single">
+          <div class="hero-title-wrap">
+            <h1 class="hero-title">Shareholding Data</h1>
+          </div>
+          <div class="hero-actions shareholding-header-actions">
+            <button id="shareholdingSyncTrigger" type="button" class="icon-btn" aria-label="Open stock sync modal">S</button>            <button id="shareholdingNseSyncTrigger" type="button" class="icon-btn" aria-label="Fetch shareholding data from NSE">N</button>            <button id="shareholdingRefreshButton" type="button" class="icon-btn" aria-label="Refresh shareholding data">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1l-4 4 4 4V6c2.76 0 5 2.24 5 5 0 .46-.07.91-.18 1.34l1.53 1.18A7.94 7.94 0 0 0 20 11c0-4.42-3.58-8-8-8-1.9 0-3.64.66-5.02 1.76L5.6 2.89A9.975 9.975 0 0 1 12 0c5.52 0 10 4.48 10 10 0 1.5-.33 2.94-.92 4.24L17.65 6.35zM6.35 17.65A7.95 7.95 0 0 0 12 20v3l4-4-4-4v3c-2.76 0-5-2.24-5-5 0-.46.07-.91.18-1.34L5.65 8.5A7.94 7.94 0 0 0 4 13c0 4.42 3.58 8 8 8 1.9 0 3.64-.66 5.02-1.76L18.4 21.11A9.975 9.975 0 0 1 12 24c-5.52 0-10-4.48-10-10 0-1.5.33-2.94.92-4.24l3.43 3.89z"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <section class="filters-card" aria-label="Shareholding filters">
+          <label class="stock-search-label">
+            <span>Search Stock</span>
+            <div class="stock-search-container">
+              <input id="stockSearchInput" type="text" placeholder="Type stock name..." aria-label="Search stock by name" autocomplete="off" />
+              <div id="stockSearchSuggestions" class="stock-search-suggestions hidden"></div>
+            </div>
+          </label>
+        </section>
+
+        <section class="table-card">
+          <div class="table-toolbar">
+            <div class="status-stack">
+              <div id="shareholdingStatusText">Loading shareholding data…</div>
+              <div id="shareholdingSyncStatus" class="sync-status">Idle</div>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr id="shareholdingHeaderRow">
+                  <th>Category</th>
+                </tr>
+              </thead>
+              <tbody id="shareholdingBody"></tbody>
+            </table>
+          </div>
+
+          <div class="table-toolbar" style="margin-top: 24px;">
+            <div class="status-stack">
+              <div id="shareholdingSummaryHeading" class="section-title">NSE Shareholder Data</div>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr id="shareholdingSummaryHeaderRow">
+                  <th>Category</th>
+                </tr>
+              </thead>
+              <tbody id="shareholdingSummaryBody"></tbody>
+            </table>
+          </div>
+          <div id="shareholdingLoadingOverlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+          </div>
+        </section>
+
+        <div id="shareholdingSyncModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="shareholdingSyncModalTitle">
+          <div class="modal-panel" role="document">
+            <div class="modal-header">
+              <div class="modal-title-stack">
+                <p class="eyebrow">Sync stock data</p>
+              </div>
+              <button id="shareholdingSyncModalClose" type="button" class="icon-btn" aria-label="Close stock sync modal">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="shareholding-sync-step">
+                <label class="stock-search-label">
+                  <span>Select stock</span>
+                  <div class="stock-search-row">
+                    <div class="stock-search-container shareholding-sync-search">
+                      <input id="shareholdingSyncInput" type="text" placeholder="Type stock name or symbol..." aria-label="Search stock to sync" autocomplete="off" />
+                      <div id="shareholdingSyncSuggestions" class="stock-search-suggestions hidden"></div>
+                    </div>
+                  </div>
+                </label>
+                <div id="shareholdingSyncSelection" class="shareholding-sync-selection hidden"></div>
+                <div id="shareholdingSyncActions" class="shareholding-sync-actions hidden">
+                  <button id="shareholdingSyncFetchButton" type="button" class="primary-btn">Fetch latest data</button>
+                  <button id="shareholdingSyncCancelButton" type="button" class="secondary-btn">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
     </div>
+
 
     <script type="module" src="/app.js"></script>
   </body>

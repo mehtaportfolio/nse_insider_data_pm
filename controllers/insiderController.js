@@ -1,7 +1,7 @@
 import axios from "axios";
-import { fetchInsiderFilings } from "../services/nseService.js";
-import { parseDetail } from "../services/detailParser.js";
-import { getSupabaseClient, normalizeTransactionForSupabase, upsertTransactions, pruneTransactionsToMonthWindow } from "../services/supabaseService.js";
+import { fetchInsiderFilings } from "../src/services/nseService.js";
+import { parseDetail } from "../src/services/detailParser.js";
+import { getSupabaseClient, normalizeTransactionForSupabase, upsertTransactions, pruneTransactionsToMonthWindow } from "../src/services/supabaseService.js";
 
 function isWithinCurrentOrPreviousMonth(value, referenceDate = new Date()) {
   const match = `${value || ""}`.match(/(\d{1,2})[-/](\w{3,9})[-/](\d{4})/i);
@@ -157,13 +157,13 @@ export async function getStockMasterByName(req, res) {
         .select("stock_name, industry, sector, category, macro_sector, known_sector, basic_industry")
         .eq("stock_name", stockName)
         .limit(1)
-        .single(),
+        .maybeSingle(),
       supabase
         .from("stock_mapping")
         .select("cmp, lcp")
         .eq("stock_name", stockName)
         .limit(1)
-        .single()
+        .maybeSingle()
     ]);
 
     if (masterError) {
