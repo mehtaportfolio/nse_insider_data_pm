@@ -9,12 +9,14 @@ import insiderRoutes from "./src/routes/insider.js";
 import shareholdingRoutes from "./src/routes/shareholding.js";
 import shareholdingPatternRoutes from "./src/routes/shareholdingPattern.js";
 import shareholdingSyncRoutes from "./src/routes/shareholdingSync.js";
+import screenerClassificationRoutes from "./src/routes/screenerClassification.js";
 
 
 import screenerShareholdingRoutes from "./src/routes/screenerShareholding.js";
 import screenerSyncRoutes from "./src/routes/screenerSync.js";
 import { syncScreenerShareholding } from "./src/services/screenerSyncService.js";
 import { syncShareholdingFilingsFromNse } from "./src/services/nseShareService.js";
+import { runClassificationSync } from "./src/services/screenerClassificationService.js";
 
 
 dotenv.config();
@@ -38,6 +40,7 @@ app.use("/", shareholdingSyncRoutes);
 
 app.use("/", screenerShareholdingRoutes);
 app.use("/", screenerSyncRoutes);
+app.use("/api/screener/classification", screenerClassificationRoutes);
 
 app.get("/health", (req, res) => {
     res.json({
@@ -133,6 +136,8 @@ cron.schedule("0 6 * * *", async () => {
 
 console.log("Screener sync cron scheduled: Every day at 2:00 AM");
 console.log("Shareholding filing sync cron scheduled: Every day at 6:00 AM");
+
+
 
 app.listen(PORT, () => {
   console.log(`NSE Insider Data server running on http://localhost:${PORT}`);
