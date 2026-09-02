@@ -145,6 +145,9 @@ tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
 .modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.68); padding: 24px; z-index: 120; }
 .modal.hidden { display: none; }
 .modal-panel { width: 100%; max-width: 720px; max-height: calc(100vh - 48px); background: var(--surface); border: 1px solid var(--border); border-radius: 20px; overflow: hidden; box-shadow: 0 28px 64px rgba(0,0,0,0.45); }
+#shareholdingSyncModal .modal-panel { min-height: 360px; }
+#shareholdingSyncModal .modal-body { display: block; max-height: none; overflow: visible; }
+#shareholdingSyncModal .stock-search-suggestions { max-height: 360px; }
 .modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 20px 24px 0; }
 .modal-title-stack { display: grid; gap: 6px; }
 .modal-subtitle { color: var(--muted); font-size: 0.95rem; }
