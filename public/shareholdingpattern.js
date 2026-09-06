@@ -440,7 +440,7 @@ async function syncSelectedStock() {
   try {
     const response = isNseMode
       ? await fetch(`/api/shareholding-sync-trigger?stock_name=${encodeURIComponent(stockName)}`)
-      : await fetch(`/screener-stock/${encodeURIComponent(stockName)}?key=pm_shareholding_sync_2026_7gH92KxL`);
+      : await fetch(`/api/screener-stock/${encodeURIComponent(stockName)}`);
     let payload = null;
 
     if (response.ok) {

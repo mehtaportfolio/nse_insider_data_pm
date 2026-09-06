@@ -8,6 +8,52 @@ import {
 
 const router = express.Router();
 
+async function syncStock(req, res) {
+    try {
+
+        const stockName = decodeURIComponent(req.params.stockName).trim();
+
+        const stock = await getStock(stockName);
+
+        if (!stock) {
+
+            return res.status(404).json({
+                success: false,
+                error: "Stock not found"
+            });
+
+        }
+
+        const rows = await fetchShareholding(
+            stock.stock_name,
+            stock.exchange,
+            stock.symbol_token
+        );
+
+        await saveShareholding(rows);
+
+        await cleanupOldRows(stock.stock_name);
+
+        res.json({
+            success: true,
+            stock: stock.stock_name,
+            exchange: stock.exchange,
+            quarters: rows.length,
+            data: rows
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        res.status(500).json({
+            success: false,
+            error: err.message
+        });
+
+    }
+}
+
 /**
  * Test a single symbol
  * Example:
@@ -52,50 +98,10 @@ router.get("/screener-stock/:stockName", async (req, res) => {
 
     }
 
-    try {
-
-        const stockName = decodeURIComponent(req.params.stockName).trim();
-
-        const stock = await getStock(stockName);
-
-        if (!stock) {
-
-            return res.status(404).json({
-                success: false,
-                error: "Stock not found"
-            });
-
-        }
-
-        const rows = await fetchShareholding(
-            stock.stock_name,
-            stock.exchange,
-            stock.symbol_token
-        );
-
-        await saveShareholding(rows);
-
-        await cleanupOldRows(stock.stock_name);
-
-        res.json({
-            success: true,
-            stock: stock.stock_name,
-            exchange: stock.exchange,
-            quarters: rows.length,
-            data: rows
-        });
-
-    } catch (err) {
-
-        console.error(err);
-
-        res.status(500).json({
-            success: false,
-            error: err.message
-        });
-
-    }
+    return syncStock(req, res);
 
 });
+
+router.get("/api/screener-stock/:stockName", syncStock);
 
 export default router;
