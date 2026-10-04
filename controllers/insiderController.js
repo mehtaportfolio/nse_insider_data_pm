@@ -193,6 +193,14 @@ export async function getStockMasterByName(req, res) {
 }
 
 export async function syncTransactions(req, res) {
+  const isEventStream = req.headers.accept === "text/event-stream";
+  if (isEventStream) {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+  }
+
   try {
     const rawData = await fetchInsiderFilings();
     const filings = rawData?.data || [];
@@ -298,6 +306,11 @@ export async function syncTransactions(req, res) {
       deleted: cleanup.deleted
     });
   } catch (error) {
+    if (isEventStream) {
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.end();
+      return;
+    }
     res.status(500).json({ error: error.message });
   }
 }

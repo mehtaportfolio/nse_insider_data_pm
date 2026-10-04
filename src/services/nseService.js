@@ -20,6 +20,10 @@ export async function fetchInsiderFilings() {
 
         console.log("Fetching insider filings from NSE...", url);
 
+        await client.get("https://www.nseindia.com/companies-listing/corporate-filings-insider-trading", {
+            timeout: 60000
+        });
+
         const response = await client.get(url, {
             timeout: 60000
         });
@@ -27,7 +31,11 @@ export async function fetchInsiderFilings() {
         console.log("NSE data fetched successfully");
         return response.data;
     } catch (err) {
-        console.error("Failed to fetch insider filings:", err);
-        throw err;
+        const status = err.response?.status;
+        const message = status === 403
+            ? "NSE returned 403 Forbidden. Its anti-bot protection may be blocking this server; try again later."
+            : err.message;
+        console.error(`Failed to fetch insider filings${status ? ` (HTTP ${status})` : ""}: ${message}`);
+        throw new Error(message, { cause: err });
     }
 }

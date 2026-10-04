@@ -297,7 +297,9 @@ function bindEvents() {
         for (const part of parts) {
           if (!part.startsWith("data:")) continue;
           const payload = JSON.parse(part.slice(5).trim());
-          if (payload.done) {
+          if (payload.error) {
+            throw new Error(payload.error);
+          } else if (payload.done) {
             elements.syncStatus.textContent = `Completed: ${payload.totalInserted || 0} inserted, ${payload.deleted || 0} removed`;
             elements.statusText.textContent = `Synced ${payload.totalInserted || 0} transactions`;
             await fetchTransactions();
