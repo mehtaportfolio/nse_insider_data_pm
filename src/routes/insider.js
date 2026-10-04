@@ -31,7 +31,7 @@ router.get("/api/filter-options", getFilterOptions);
 router.get("/api/insider-stock-suggestions", getInsiderStockSuggestions);
 router.get("/api/stock-master", getStockMasterByName);
 router.post("/api/sync", syncTransactions);
-router.post("/api/sync/upload", express.text({ type: "text/csv", limit: "5mb" }), uploadInsiderCsv);
+router.post("/api/sync/upload", express.text({ type: "text/csv", limit: "20mb" }), uploadInsiderCsv);
 router.get("/api/sync", syncTransactions);
 
 const PORT = process.env.PORT || 3000;

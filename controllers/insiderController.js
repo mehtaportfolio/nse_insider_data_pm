@@ -5,7 +5,7 @@ import { isNseInsiderFilingUrl, parseInsiderCsv } from "../src/services/insiderC
 import { filterInsiderFilingsBySymbol, normalizeInsiderSymbol } from "../src/services/insiderSymbolService.js";
 import { getSupabaseClient, normalizeTransactionForSupabase, upsertTransactions, pruneTransactionsToMonthWindow } from "../src/services/supabaseService.js";
 
-const MAX_CSV_FILINGS = 1000;
+const MAX_CSV_FILINGS = 10000;
 
 function isWithinCurrentOrPreviousMonth(value, referenceDate = new Date()) {
   const match = `${value || ""}`.match(/(\d{1,2})[-/](\w{3,9})[-/](\d{4})/i);
