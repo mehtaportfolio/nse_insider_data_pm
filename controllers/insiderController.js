@@ -1,7 +1,11 @@
 import axios from "axios";
 import { fetchInsiderFilings } from "../src/services/nseService.js";
 import { parseDetail } from "../src/services/detailParser.js";
+import { isNseInsiderFilingUrl, parseInsiderCsv } from "../src/services/insiderCsvService.js";
+import { filterInsiderFilingsBySymbol, normalizeInsiderSymbol } from "../src/services/insiderSymbolService.js";
 import { getSupabaseClient, normalizeTransactionForSupabase, upsertTransactions, pruneTransactionsToMonthWindow } from "../src/services/supabaseService.js";
+
+const MAX_CSV_FILINGS = 1000;
 
 function isWithinCurrentOrPreviousMonth(value, referenceDate = new Date()) {
   const match = `${value || ""}`.match(/(\d{1,2})[-/](\w{3,9})[-/](\d{4})/i);
@@ -192,6 +196,53 @@ export async function getStockMasterByName(req, res) {
   }
 }
 
+export async function getInsiderStockSuggestions(req, res, deps = {}) {
+  try {
+    const search = `${req.query.search || ""}`.trim();
+    if (search.length < 2) return res.json([]);
+
+    const getClient = deps.getSupabaseClient || getSupabaseClient;
+    const supabase = getClient();
+    const stockNames = new Set();
+    const pageSize = 1000;
+
+    for (let offset = 0; offset < 10000 && stockNames.size < 15; offset += pageSize) {
+      let query = supabase
+        .from("stock_transactions")
+        .select("stock_name")
+        .not("stock_name", "is", null)
+        .ilike("stock_name", `%${search}%`)
+        .order("stock_name", { ascending: true });
+      const { data, error } = await query.range(offset, offset + pageSize - 1);
+      if (error) throw error;
+
+      for (const row of data || []) {
+        const stockName = `${row.stock_name || ""}`.trim();
+        if (stockName) stockNames.add(stockName);
+        if (stockNames.size >= 15) break;
+      }
+      if (!data || data.length < pageSize) break;
+    }
+
+    const names = [...stockNames];
+    if (names.length === 0) return res.json([]);
+
+    const { data: masterRows, error: masterError } = await supabase
+      .from("stock_master")
+      .select("symbol, stock_name")
+      .in("stock_name", names);
+    if (masterError) throw masterError;
+
+    const symbolsByName = new Map((masterRows || []).map((row) => [row.stock_name, row.symbol]));
+    res.json(names.map((stockName) => ({
+      stock_name: stockName,
+      symbol: normalizeInsiderSymbol(symbolsByName.get(stockName) || stockName)
+    })));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 export async function syncTransactions(req, res) {
   const isEventStream = req.headers.accept === "text/event-stream";
   if (isEventStream) {
@@ -203,13 +254,18 @@ export async function syncTransactions(req, res) {
 
   try {
     const rawData = await fetchInsiderFilings();
-    const filings = rawData?.data || [];
+    const requestedSymbol = normalizeInsiderSymbol(req.body?.symbol);
+    const allFilings = rawData?.data || [];
+    const filings = requestedSymbol
+      ? filterInsiderFilingsBySymbol(allFilings, requestedSymbol)
+      : allFilings;
     // Debug mode: do not filter filings by broadcast date here.
     // const filings = (rawData?.data || []).filter((filing) => isWithinCurrentOrPreviousMonth(filing.broadcastDateTime || filing.exchdisstime || ""));
 
     let totalTransactionsParsed = 0;
     let totalInserted = 0;
     let totalSkipped = 0;
+    let totalFailed = 0;
     let processedFilings = 0;
 
     const sendProgress = (payload) => {
@@ -272,6 +328,7 @@ export async function syncTransactions(req, res) {
         processedFilings += 1;
       } catch (error) {
         processedFilings += 1;
+        totalFailed += 1;
         console.error(`Failed to sync filing ${filing.symbol}:`, error.message);
         sendProgress({
           message: `Failed for ${filing.symbol || "filing"}: ${error.message}`,
@@ -282,12 +339,17 @@ export async function syncTransactions(req, res) {
       }
     }
 
-    const cleanup = await pruneTransactionsToMonthWindow();
-    sendProgress(`Removed ${cleanup.deleted} rows outside the current and previous month window`);
+    const cleanup = requestedSymbol ? { deleted: 0 } : await pruneTransactionsToMonthWindow();
+    if (!requestedSymbol) {
+      sendProgress(`Removed ${cleanup.deleted} rows outside the current and previous month window`);
+    }
 
     if (req.headers.accept === "text/event-stream") {
       res.write(`data: ${JSON.stringify({
         done: true,
+        symbol: requestedSymbol || null,
+        noData: Boolean(requestedSymbol && totalTransactionsParsed === 0 && totalFailed === 0),
+        failed: totalFailed,
         totalFilingsProcessed: filings.length,
         totalTransactionsParsed,
         totalInserted,
@@ -313,4 +375,96 @@ export async function syncTransactions(req, res) {
     }
     res.status(500).json({ error: error.message });
   }
+}
+
+export async function uploadInsiderCsv(req, res) {
+  let filings;
+  try {
+    if (typeof req.body !== "string") {
+      throw new Error("Upload a CSV file to import filings.");
+    }
+    filings = parseInsiderCsv(req.body);
+  } catch (error) {
+    return res.status(400).json({ error: error.message });
+  }
+
+  if (filings.length === 0) {
+    return res.status(400).json({ error: "CSV contains no filing URLs in the DETAILS column." });
+  }
+  if (filings.length > MAX_CSV_FILINGS) {
+    return res.status(413).json({ error: `CSV exceeds the ${MAX_CSV_FILINGS}-filing upload limit.` });
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const sendProgress = (payload) => {
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+  const failures = [];
+  let processed = 0;
+  let totalParsed = 0;
+  let totalUpserted = 0;
+  let totalSkipped = 0;
+  let nextFilingIndex = 0;
+
+  const processFiling = async (filing) => {
+    try {
+      if (!isNseInsiderFilingUrl(filing.filingUrl)) {
+        throw new Error("DETAILS must link to an NSE insider-trading HTML filing.");
+      }
+
+      const response = await axios.get(filing.filingUrl, {
+        headers: { "User-Agent": "Mozilla/5.0", Accept: "text/html" },
+        timeout: 20000
+      });
+      const parsedTransactions = parseDetail(response.data, {
+        companyName: filing.companyName,
+        broadcastDateTime: filing.broadcastDateTime,
+        filingUrl: filing.filingUrl,
+        regulation: filing.regulation,
+        typeOfSubmission: filing.typeOfSubmission
+      });
+      const normalizedTransactions = parsedTransactions
+        .map((transaction) => normalizeTransactionForSupabase(transaction))
+        .filter(Boolean);
+      const result = await upsertTransactions(normalizedTransactions);
+
+      totalParsed += parsedTransactions.length;
+      totalUpserted += result.inserted;
+      totalSkipped += result.skipped;
+    } catch (error) {
+      failures.push({ row: filing.rowNumber, symbol: filing.symbol, message: error.message });
+      console.error(`Failed to import CSV filing on row ${filing.rowNumber}: ${error.message}`);
+    }
+
+    processed += 1;
+    sendProgress({
+      processed,
+      total: filings.length,
+      message: `${filing.symbol || filing.companyName || `CSV row ${filing.rowNumber}`}: ${totalParsed} parsed, ${totalUpserted} upserted`
+    });
+  };
+
+  const worker = async () => {
+    while (nextFilingIndex < filings.length) {
+      const filing = filings[nextFilingIndex];
+      nextFilingIndex += 1;
+      await processFiling(filing);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(4, filings.length) }, worker));
+  sendProgress({
+    done: true,
+    totalFilings: filings.length,
+    totalParsed,
+    totalUpserted,
+    totalSkipped,
+    failed: failures.length,
+    errors: failures.slice(0, 5)
+  });
+  res.end();
 }

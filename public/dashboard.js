@@ -28,6 +28,15 @@ const elements = {
   modeFilter: document.getElementById("modeFilter"),
   loadingOverlay: document.getElementById("loadingOverlay"),
   fetchButton: document.getElementById("fetchButton"),
+  fetchModeDialog: document.getElementById("fetchModeDialog"),
+  closeFetchMode: document.getElementById("closeFetchMode"),
+  fetchAllStocks: document.getElementById("fetchAllStocks"),
+  fetchSingleStock: document.getElementById("fetchSingleStock"),
+  singleStockPicker: document.getElementById("singleStockPicker"),
+  singleStockSearch: document.getElementById("singleStockSearch"),
+  singleStockSuggestions: document.getElementById("singleStockSuggestions"),
+  uploadCsvButton: document.getElementById("uploadCsvButton"),
+  uploadCsvInput: document.getElementById("uploadCsvInput"),
   refreshButton: document.getElementById("refreshButton"),
   autoRefreshIndicator: document.getElementById("autoRefreshIndicator"),
   categoryToggle: document.getElementById("categoryToggle"),
@@ -43,6 +52,8 @@ const elements = {
 };
 
 let debounceTimer = null;
+let stockSuggestionTimer = null;
+let stockSuggestionRequest = 0;
 
 function setLoading(isLoading) {
   elements.loadingOverlay.classList.toggle("hidden", !isLoading);
@@ -69,9 +80,10 @@ export function formatDate(value) {
   return `${day}-${month}-${year}`;
 }
 
-function renderRows(items, activeLimit) {
+function renderRows(items, activeLimit, noData = false) {
   if (!items.length) {
-    elements.body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#a6a6a6;">No data found</td></tr>';
+    const message = noData ? "No data available for this stock" : "No data found";
+    elements.body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#a6a6a6;">${message}</td></tr>`;
     return;
   }
 
@@ -90,7 +102,7 @@ function renderRows(items, activeLimit) {
   }).join("");
 }
 
-export async function fetchTransactions({ showRefreshIndicator = false } = {}) {
+export async function fetchTransactions({ showRefreshIndicator = false, noData = false } = {}) {
   if (showRefreshIndicator) {
     setAutoRefresh(true);
   }
@@ -110,10 +122,10 @@ export async function fetchTransactions({ showRefreshIndicator = false } = {}) {
   try {
     const response = await fetch(`/api/transactions?${params.toString()}`);
     const payload = await response.json();
-    renderRows(payload.items || [], limit);
-    elements.statusText.textContent = `${payload.pagination?.total || 0} transactions`;
-    const currentPage = payload.pagination?.page || 1;
-    const totalPages = payload.pagination?.totalPages || 1;
+    renderRows(noData ? [] : payload.items || [], limit, noData);
+    elements.statusText.textContent = noData ? "No data available for this stock" : `${payload.pagination?.total || 0} transactions`;
+    const currentPage = noData ? 1 : payload.pagination?.page || 1;
+    const totalPages = noData ? 1 : payload.pagination?.totalPages || 1;
     const pageLabel = `Page ${currentPage}/${totalPages}`;
     elements.pageInfo.textContent = pageLabel;
     if (elements.pageInfoBottom) {
@@ -271,54 +283,247 @@ function applyDebouncedSearch() {
   }, 250);
 }
 
-function bindEvents() {
-  elements.fetchButton.addEventListener("click", async () => {
-    elements.fetchButton.disabled = true;
-    elements.fetchButton.textContent = "Fetching...";
-    elements.statusText.textContent = "Syncing with NSE...";
-    elements.syncStatus.textContent = "Starting sync";
-    try {
-      const response = await fetch("/api/sync", {
-        method: "POST",
-        headers: { Accept: "text/event-stream" }
-      });
+async function uploadInsiderCsv(file) {
+  elements.fetchButton.disabled = true;
+  elements.uploadCsvButton.disabled = true;
+  elements.statusText.textContent = `Uploading ${file.name}...`;
+  elements.syncStatus.textContent = "Reading filing links";
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
+  try {
+    const response = await fetch("/api/sync/upload", {
+      method: "POST",
+      headers: {
+        Accept: "text/event-stream",
+        "Content-Type": "text/csv"
+      },
+      body: file
+    });
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split("\n\n");
-        buffer = parts.pop() || "";
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || `CSV upload failed (${response.status})`);
+    }
 
-        for (const part of parts) {
-          if (!part.startsWith("data:")) continue;
-          const payload = JSON.parse(part.slice(5).trim());
-          if (payload.error) {
-            throw new Error(payload.error);
-          } else if (payload.done) {
-            elements.syncStatus.textContent = `Completed: ${payload.totalInserted || 0} inserted, ${payload.deleted || 0} removed`;
-            elements.statusText.textContent = `Synced ${payload.totalInserted || 0} transactions`;
-            await fetchTransactions();
-          } else if (payload.processed && payload.total) {
-            const base = `${payload.processed} of ${payload.total} processed`;
-            elements.syncStatus.textContent = payload.message ? `${base} — ${payload.message}` : base;
-          } else if (payload.message) {
-            elements.syncStatus.textContent = payload.message;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let completed = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() || "";
+
+      for (const part of parts) {
+        if (!part.startsWith("data:")) continue;
+        const payload = JSON.parse(part.slice(5).trim());
+        if (payload.error) {
+          throw new Error(payload.error);
+        }
+        if (payload.done) {
+          completed = true;
+          const failureSummary = payload.failed ? `, ${payload.failed} failed` : "";
+          elements.statusText.textContent = "CSV import complete";
+          elements.syncStatus.textContent = `${payload.totalUpserted} rows upserted from ${payload.totalFilings} filings (${payload.totalParsed} parsed${failureSummary})`;
+          if (payload.errors?.length) {
+            elements.syncStatus.textContent += `; first error: row ${payload.errors[0].row} ${payload.errors[0].message}`;
           }
+          await fetchTransactions();
+        } else if (payload.processed && payload.total) {
+          elements.syncStatus.textContent = `${payload.processed} of ${payload.total} filings processed: ${payload.message}`;
         }
       }
-    } catch (error) {
-      elements.statusText.textContent = "Sync failed";
-      elements.syncStatus.textContent = error.message;
-    } finally {
-      elements.fetchButton.disabled = false;
-      elements.fetchButton.textContent = "Fetch Data";
     }
+
+    if (!completed) {
+      throw new Error("Upload connection ended before the import completed.");
+    }
+  } catch (error) {
+    elements.statusText.textContent = "CSV import failed";
+    elements.syncStatus.textContent = error.message;
+  } finally {
+    elements.fetchButton.disabled = false;
+    elements.uploadCsvButton.disabled = false;
+    elements.uploadCsvInput.value = "";
+  }
+}
+
+function renderInsiderStockSuggestions(stocks) {
+  const suggestions = elements.singleStockSuggestions;
+  suggestions.replaceChildren();
+
+  if (!stocks.length) {
+    const empty = document.createElement("div");
+    empty.className = "suggestion-item";
+    empty.textContent = "No stocks found";
+    suggestions.append(empty);
+  } else {
+    for (const stock of stocks) {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "suggestion-item";
+      option.setAttribute("role", "option");
+
+      const symbol = document.createElement("span");
+      symbol.className = "suggestion-symbol";
+      symbol.textContent = stock.symbol;
+      const name = document.createElement("span");
+      name.className = "suggestion-name";
+      name.textContent = stock.stock_name;
+      option.append(symbol);
+      if (stock.stock_name.toUpperCase() !== stock.symbol.toUpperCase()) {
+        option.append(name);
+      }
+      option.addEventListener("click", () => {
+        elements.fetchModeDialog.close();
+        runInsiderSync(stock);
+      });
+      suggestions.append(option);
+    }
+  }
+
+  suggestions.classList.remove("hidden");
+}
+
+function searchInsiderStocks(search) {
+  clearTimeout(stockSuggestionTimer);
+  const requestId = ++stockSuggestionRequest;
+  const term = search.trim();
+  if (term.length < 2) {
+    elements.singleStockSuggestions.classList.add("hidden");
+    return;
+  }
+
+  stockSuggestionTimer = window.setTimeout(async () => {
+    elements.singleStockSuggestions.replaceChildren();
+    const loading = document.createElement("div");
+    loading.className = "suggestion-item";
+    loading.textContent = "Searching stocks...";
+    elements.singleStockSuggestions.append(loading);
+    elements.singleStockSuggestions.classList.remove("hidden");
+
+    try {
+      const response = await fetch(`/api/insider-stock-suggestions?search=${encodeURIComponent(term)}`);
+      if (!response.ok) throw new Error("Unable to load stock suggestions");
+      const stocks = await response.json();
+      if (requestId === stockSuggestionRequest) renderInsiderStockSuggestions(stocks);
+    } catch (error) {
+      if (requestId !== stockSuggestionRequest) return;
+      elements.singleStockSuggestions.replaceChildren();
+      const message = document.createElement("div");
+      message.className = "suggestion-item";
+      message.textContent = error.message;
+      elements.singleStockSuggestions.append(message);
+    }
+  }, 250);
+}
+
+async function runInsiderSync(stock = null) {
+  elements.fetchButton.disabled = true;
+  elements.fetchButton.textContent = "Fetching...";
+  elements.statusText.textContent = stock ? `Fetching insider data for ${stock.stock_name}...` : "Syncing with NSE...";
+  elements.syncStatus.textContent = "Starting sync";
+
+  if (stock) {
+    state.filters.symbol = stock.symbol;
+    state.filters.category = "";
+    state.filters.transactionType = "";
+    state.filters.mode = "";
+    state.filters.view = "nse";
+    elements.symbolFilter.value = stock.symbol;
+    elements.transactionTypeFilter.value = "";
+    elements.modeFilter.value = "";
+    elements.viewNseButton.classList.add("active");
+    elements.viewHoldingsButton.classList.remove("active");
+    elements.categoryOptions.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
+      checkbox.checked = false;
+    });
+    updateCategoryLabel();
+    state.page = 1;
+  }
+
+  try {
+    const response = await fetch("/api/sync", {
+      method: "POST",
+      headers: { Accept: "text/event-stream", "Content-Type": "application/json" },
+      body: JSON.stringify(stock ? { symbol: stock.symbol } : {})
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || `Sync failed (${response.status})`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let completed = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split("\n\n");
+      buffer = parts.pop() || "";
+
+      for (const part of parts) {
+        if (!part.startsWith("data:")) continue;
+        const payload = JSON.parse(part.slice(5).trim());
+        if (payload.error) {
+          throw new Error(payload.error);
+        }
+        if (payload.done) {
+          completed = true;
+          await fetchTransactions({ noData: Boolean(payload.noData) });
+          if (payload.noData && stock) {
+            elements.statusText.textContent = `No data available for ${stock.stock_name}`;
+            elements.syncStatus.textContent = `No recent insider filings for ${stock.stock_name}`;
+          } else {
+            elements.syncStatus.textContent = stock
+              ? `${payload.totalInserted || 0} transactions saved for ${stock.stock_name}`
+              : `Completed: ${payload.totalInserted || 0} inserted, ${payload.deleted || 0} removed`;
+          }
+        } else if (payload.processed && payload.total) {
+          const base = `${payload.processed} of ${payload.total} processed`;
+          elements.syncStatus.textContent = payload.message ? `${base} — ${payload.message}` : base;
+        } else if (payload.message) {
+          elements.syncStatus.textContent = payload.message;
+        }
+      }
+    }
+
+    if (!completed) throw new Error("Sync connection ended before completion.");
+  } catch (error) {
+    elements.statusText.textContent = "Sync failed";
+    elements.syncStatus.textContent = error.message;
+  } finally {
+    elements.fetchButton.disabled = false;
+    elements.fetchButton.textContent = "Fetch Data";
+  }
+}
+
+function bindEvents() {
+  elements.uploadCsvButton.addEventListener("click", () => elements.uploadCsvInput.click());
+  elements.uploadCsvInput.addEventListener("change", () => {
+    const [file] = elements.uploadCsvInput.files || [];
+    if (file) uploadInsiderCsv(file);
   });
+
+  elements.fetchButton.addEventListener("click", () => elements.fetchModeDialog.showModal());
+  elements.closeFetchMode.addEventListener("click", () => elements.fetchModeDialog.close());
+  elements.fetchAllStocks.addEventListener("click", () => {
+    elements.fetchModeDialog.close();
+    state.filters.symbol = "";
+    elements.symbolFilter.value = "";
+    state.page = 1;
+    runInsiderSync();
+  });
+  elements.fetchSingleStock.addEventListener("click", () => {
+    elements.singleStockPicker.classList.remove("hidden");
+    elements.singleStockSearch.focus();
+  });
+  elements.singleStockSearch.addEventListener("input", () => searchInsiderStocks(elements.singleStockSearch.value));
 
   elements.prevPage.addEventListener("click", () => {
     if (state.page > 1) {

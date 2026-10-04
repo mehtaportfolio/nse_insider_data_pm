@@ -45,6 +45,10 @@
           <div class="hero-actions">
             <div class="hero-actions-main">
               <button id="fetchButton" type="button" class="primary-btn">Fetch Data</button>
+              <button id="uploadCsvButton" type="button" class="icon-btn" aria-label="Upload insider filings CSV" title="Upload insider filings CSV">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v6h14v-6" style="fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round" /></svg>
+              </button>
+              <input id="uploadCsvInput" type="file" accept=".csv,text/csv" hidden />
               <button id="refreshButton" type="button" class="icon-btn" aria-label="Refresh data">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1l-4 4 4 4V6c2.76 0 5 2.24 5 5 0 .46-.07.91-.18 1.34l1.53 1.18A7.94 7.94 0 0 0 20 11c0-4.42-3.58-8-8-8-1.9 0-3.64.66-5.02 1.76L5.6 2.89A9.975 9.975 0 0 1 12 0c5.52 0 10 4.48 10 10 0 1.5-.33 2.94-.92 4.24L17.65 6.35zM6.35 17.65A7.95 7.95 0 0 0 12 20v3l4-4-4-4v3c-2.76 0-5-2.24-5-5 0-.46.07-.91.18-1.34L5.65 8.5A7.94 7.94 0 0 0 4 13c0 4.42 3.58 8 8 8 1.9 0 3.64-.66 5.02-1.76L18.4 21.11A9.975 9.975 0 0 1 12 24c-5.52 0-10-4.48-10-10 0-1.5.33-2.94.92-4.24l3.43 3.89z"/></svg>
               </button>
@@ -57,6 +61,24 @@
             </div>
           </div>
         </header>
+
+        <dialog id="fetchModeDialog" class="fetch-mode-dialog" aria-labelledby="fetchModeTitle">
+          <div class="fetch-mode-header">
+            <h2 id="fetchModeTitle">Fetch insider data</h2>
+            <button id="closeFetchMode" type="button" class="icon-btn" aria-label="Close fetch options">×</button>
+          </div>
+          <div class="fetch-mode-options">
+            <button id="fetchAllStocks" type="button" class="secondary-btn">All stocks</button>
+            <button id="fetchSingleStock" type="button" class="secondary-btn">Single stock</button>
+          </div>
+          <div id="singleStockPicker" class="single-stock-picker hidden">
+            <label for="singleStockSearch">Search a stock</label>
+            <div class="stock-search-container">
+              <input id="singleStockSearch" type="search" autocomplete="off" placeholder="Type a stock name" />
+              <div id="singleStockSuggestions" class="stock-search-suggestions hidden" role="listbox"></div>
+            </div>
+          </div>
+        </dialog>
 
         <section class="filters-card" aria-label="Transaction filters">
           <div class="filters-grid">

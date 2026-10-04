@@ -72,6 +72,17 @@ h1 { margin: 0 0 8px; font-size: clamp(1.4rem, 2.2vw, 2rem); }
 .icon-btn { width: 46px; min-width: 46px; height: 46px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
 .icon-btn svg { width: 20px; height: 20px; }
 .icon-btn svg path { fill: currentColor; }
+.fetch-mode-dialog { width: min(480px, calc(100% - 32px)); padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 28px 64px rgba(0,0,0,0.55); }
+.fetch-mode-dialog::backdrop { background: rgba(0,0,0,0.72); }
+.fetch-mode-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.fetch-mode-header h2 { margin: 0; font-size: 1.2rem; }
+.fetch-mode-header .icon-btn { width: 36px; min-width: 36px; height: 36px; }
+.fetch-mode-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fetch-mode-options .secondary-btn { min-height: 44px; }
+.single-stock-picker { display: grid; gap: 8px; margin-top: 18px; }
+.single-stock-picker.hidden { display: none; }
+.single-stock-picker label { color: var(--muted); font-size: 0.92rem; }
+.single-stock-picker .stock-search-suggestions { top: calc(100% + 4px); }
 .auto-refresh { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.95rem; }
 .spinner-sm { width: 18px; height: 18px; border-width: 2px; }
 .filters-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }

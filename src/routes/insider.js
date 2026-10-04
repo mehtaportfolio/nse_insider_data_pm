@@ -4,7 +4,9 @@ import { fileURLToPath } from "url";
 import {
   getTransactions,
   getFilterOptions,
+  getInsiderStockSuggestions,
   syncTransactions,
+  uploadInsiderCsv,
   getStockMasterByName,
 } from "../../controllers/insiderController.js";
 
@@ -26,8 +28,10 @@ router.get("/", (req, res) => {
 
 router.get("/api/transactions", getTransactions);
 router.get("/api/filter-options", getFilterOptions);
+router.get("/api/insider-stock-suggestions", getInsiderStockSuggestions);
 router.get("/api/stock-master", getStockMasterByName);
 router.post("/api/sync", syncTransactions);
+router.post("/api/sync/upload", express.text({ type: "text/csv", limit: "5mb" }), uploadInsiderCsv);
 router.get("/api/sync", syncTransactions);
 
 const PORT = process.env.PORT || 3000;
